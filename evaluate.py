@@ -87,16 +87,12 @@ def evaluate_model(model: TwoTowerModel, test_data: Dict, original_data: Dict,
     recall_scores = []
     ndcg_scores = []
 
-    # Prepare normalized features for all items
-    user_scaler = test_data.get('user_scaler') or StandardScaler().fit(original_data['user_features'])
-    item_scaler = test_data.get('item_scaler') or StandardScaler().fit(original_data['item_features'])
-
-    all_item_features_norm = item_scaler.transform(original_data['item_features'])
-    all_user_features_norm = user_scaler.transform(original_data['user_features'])
+    all_item_features = original_data['item_topics']
+    all_user_features = original_data['user_topics']
 
     # Convert to tensors
-    all_item_features_tensor = torch.FloatTensor(all_item_features_norm).to(device)
-    all_user_features_tensor = torch.FloatTensor(all_user_features_norm).to(device)
+    all_item_features_tensor = torch.FloatTensor(all_item_features).to(device)
+    all_user_features_tensor = torch.FloatTensor(all_user_features).to(device)
 
     with torch.no_grad():
         for user_id in tqdm(unique_users, desc="Evaluating users"):

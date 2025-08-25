@@ -9,7 +9,7 @@ from torch.utils.data import Dataset, DataLoader
 import warnings
 from dataset import TwoTowerDataset
 from model import TwoTowerModel
-from prepare import prepare_training_data
+from prepare import prepare_data
 from evaluate import evaluate_model
 from visualize import visualize_results
 from generate import generate_synthetic_data
@@ -31,18 +31,18 @@ def main():
     data = generate_synthetic_data(n_users=1000, n_items=500, n_interactions=50000)
 
     # Prepare training and test data
-    train_data, test_data = prepare_training_data(data)
+    train_data, test_data, data = prepare_data(data)
 
     # Create datasets and data loaders
     train_dataset = TwoTowerDataset(
-        train_data['user_features'],
-        train_data['item_features'],
+        train_data['user_topics'],
+        train_data['item_topics'],
         train_data['labels']
     )
 
     test_dataset = TwoTowerDataset(
-        test_data['user_features'],
-        test_data['item_features'],
+        test_data['user_topics'],
+        test_data['item_topics'],
         test_data['labels']
     )
 
@@ -51,16 +51,16 @@ def main():
 
     # Initialize the model
     model = TwoTowerModel(
-        user_features_dim=train_data['user_features'].shape[1],
-        item_features_dim=train_data['item_features'].shape[1],
+        user_features_dim=train_data['user_topics'].shape[1],
+        item_features_dim=train_data['item_topics'].shape[1],
         embedding_dim=64,
         hidden_layers=[128, 64],
         dropout_rate=0.3
     )
 
     print(f"\nModel Architecture:")
-    print(f"User features dimension: {train_data['user_features'].shape[1]}")
-    print(f"Item features dimension: {train_data['item_features'].shape[1]}")
+    print(f"User topics dimension: {train_data['user_topics'].shape[1]}")
+    print(f"Item topics dimension: {train_data['item_topics'].shape[1]}")
     print(f"Embedding dimension: 64")
     print(f"Hidden layers: [128, 64]")
     print(f"Total parameters: {sum(p.numel() for p in model.parameters()):,}")
@@ -71,7 +71,7 @@ def main():
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        epochs=30,
+        epochs=5,
         learning_rate=0.001
     )
 
@@ -81,8 +81,8 @@ def main():
     model.to(device)
 
     # Sample data for embedding visualization
-    sample_user_features = torch.FloatTensor(train_data['user_features'][:5000]).to(device)
-    sample_item_features = torch.FloatTensor(train_data['item_features'][:5000]).to(device)
+    sample_user_features = torch.FloatTensor(train_data['user_topics'][:5000]).to(device)
+    sample_item_features = torch.FloatTensor(train_data['item_topics'][:5000]).to(device)
 
     with torch.no_grad():
         user_embeddings = model.get_user_embeddings(sample_user_features).cpu().numpy()
@@ -92,10 +92,6 @@ def main():
         'user_embeddings': user_embeddings,
         'item_embeddings': item_embeddings
     }
-
-    # Add scalers to test_data for evaluation
-    test_data['user_scaler'] = train_data['scalers']['user_scaler']
-    test_data['item_scaler'] = train_data['scalers']['item_scaler']
 
     # Evaluate the model
     print("\n" + "=" * 60)

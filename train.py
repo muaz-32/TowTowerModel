@@ -31,8 +31,8 @@ def train_model(model: TwoTowerModel, train_loader: DataLoader, val_loader: Data
 
         train_pbar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{epochs} [Train]')
         for batch in train_pbar:
-            user_features = batch['user_features'].to(device)
-            item_features = batch['item_features'].to(device)
+            user_features = batch['user_topics'].to(device)
+            item_features = batch['item_topics'].to(device)
             labels = batch['labels'].to(device)
 
             optimizer.zero_grad()
@@ -64,8 +64,8 @@ def train_model(model: TwoTowerModel, train_loader: DataLoader, val_loader: Data
         with torch.no_grad():
             val_pbar = tqdm(val_loader, desc=f'Epoch {epoch+1}/{epochs} [Val]')
             for batch in val_pbar:
-                user_features = batch['user_features'].to(device)
-                item_features = batch['item_features'].to(device)
+                user_features = batch['user_topics'].to(device)
+                item_features = batch['item_topics'].to(device)
                 labels = batch['labels'].to(device)
 
                 similarities, _, _ = model(user_features, item_features)
