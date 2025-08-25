@@ -15,6 +15,7 @@ from visualize import visualize_results
 from generate import generate_synthetic_data
 from train import train_model
 from utils import set_random_seeds, device
+from extract import extract_data
 
 warnings.filterwarnings('ignore')
 
@@ -27,8 +28,8 @@ def main():
 
     set_random_seeds(42)
 
-    # Generate synthetic data
-    data = generate_synthetic_data(n_users=1000, n_items=500, n_interactions=50000)
+    # Get data
+    data = extract_data()
 
     # Prepare training and test data
     train_data, test_data, data = prepare_data(data)
