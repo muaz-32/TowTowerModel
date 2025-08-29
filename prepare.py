@@ -2,7 +2,7 @@ from typing import Dict, Tuple, List
 from sklearn.model_selection import train_test_split
 import numpy as np
 
-def prepare_data(data: Dict, test_size: float = 0.2, max_user_topics: int = 7, max_item_topics: int = 5) -> Tuple[Dict, Dict, Dict]:
+def prepare_data(data: Dict, test_size: float = 0.2) -> Tuple[Dict, Dict, Dict]:
     """
     Prepare training and test datasets from the synthetic data with topic lists.
     """
@@ -19,29 +19,25 @@ def prepare_data(data: Dict, test_size: float = 0.2, max_user_topics: int = 7, m
     # Create topic-to-index mappings
     topic_to_idx = {topic: idx + 1 for idx, topic in enumerate(topic_vocab)}  # Start from 1, reserve 0 for padding
 
-    # Convert topic lists to sequences of indices
-    def convert_to_fixed_length_sequences(topic_lists: List[List[str]], max_length: int) -> np.ndarray:
-        """Convert variable-length topic lists to fixed-length sequences with padding."""
-        sequences = []
+    def convert_to_multihot_encoding(topic_lists: List[List[str]], vocab_size: int, topic_to_idx: Dict) -> np.ndarray:
+        """Convert variable-length topic lists to multi-hot encoded vectors."""
+        multihot_vectors = []
 
         for topics in topic_lists:
-            # Convert topics to indices
-            topic_indices = [topic_to_idx[topic] for topic in topics]
+            # Create zero vector of vocab size
+            multihot = np.zeros(vocab_size, dtype=np.float32)
 
-            # Pad or truncate to max_length
-            if len(topic_indices) >= max_length:
-                # Truncate if too long
-                sequence = topic_indices[:max_length]
-            else:
-                # Pad with zeros if too short
-                sequence = topic_indices + [0] * (max_length - len(topic_indices))
+            # Set 1 for each topic present
+            for topic in topics:
+                if topic in topic_to_idx:
+                    multihot[topic_to_idx[topic] - 1] = 1.0  # -1 because we start indexing from 1
 
-            sequences.append(sequence)
+            multihot_vectors.append(multihot)
 
-        return np.array(sequences, dtype=np.float32)
+        return np.array(multihot_vectors)
 
-    user_topic_indices = convert_to_fixed_length_sequences(user_topics, max_user_topics)
-    item_topic_indices = convert_to_fixed_length_sequences(item_topics, max_item_topics)
+    user_topic_indices = convert_to_multihot_encoding(user_topics, vocab_size=len(topic_vocab), topic_to_idx=topic_to_idx)
+    item_topic_indices = convert_to_multihot_encoding(item_topics, vocab_size=len(topic_vocab), topic_to_idx=topic_to_idx)
 
     # Prepare training data
     train_user_topics = np.array([user_topic_indices[uid] for uid in train_interactions['user_id'].values])
