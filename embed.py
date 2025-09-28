@@ -8,7 +8,7 @@ topic_embedding_model_path = os.getenv("TOPIC_EMBEDDING_MODEL_PATH")
 
 word_vect = KeyedVectors.load_word2vec_format(topic_embedding_model_path, binary=True)
 
-def get_topic_embedding(topic: str) -> np.array:
+def get_topic_embedding(topic: str) -> np.array: # core
     """Get the embedding vector for a given topic using the pre-trained Word2Vec model."""
     # Handle non-string topics (NaN, float, None, etc.)
     if not isinstance(topic, str) or topic is None:

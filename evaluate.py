@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 interaction_threshold = int(os.getenv("SKIP_USER_INTERACTION_THRESHOLD"))
 candidate_sampling_number = int(os.getenv("CANDIDATE_SAMPLING_NUMBER"))
+max_positive_samples = int(os.getenv("MAX_POSITIVE_SAMPLES_PER_USER"))
 
 class EvaluationMetrics:
     """
@@ -106,11 +107,12 @@ def evaluate_model(model: TwoTowerModel, test_data: Dict, test_user_ids: np.arra
     print("Number of candidates sampled per user:", num_candidates)
 
     with torch.no_grad():
+        user_interactions_count = {}
         for user_id in tqdm(unique_users, desc="Evaluating users"):
             user_interactions = test_interactions[test_interactions['user_id'] == user_id]
-
             if len(user_interactions) < interaction_threshold:
                 continue
+            user_interactions_count[user_id] = len(user_interactions)
 
             # Get positive items for this user
             positive_items = user_interactions[user_interactions['label'] == 1]['item_id'].values
@@ -122,10 +124,11 @@ def evaluate_model(model: TwoTowerModel, test_data: Dict, test_user_ids: np.arra
             positive_indices = [list(test_item_ids).index(item) for item in positive_items if item in test_item_ids]
             negative_indices = [idx for idx in all_item_indices if idx not in positive_indices]
 
-            # Sample candidates (positive + random negatives)
-            num_negatives = min(num_candidates - len(positive_indices), len(negative_indices))
+            # Ensure balanced sampling: limit positive indices if they dominate
+            selected_positive_indices = positive_indices[:max_positive_samples]
+            num_negatives = min(num_candidates - len(selected_positive_indices), len(negative_indices))
             sampled_negatives = np.random.choice(negative_indices, num_negatives, replace=False)
-            candidate_indices = positive_indices + list(sampled_negatives)
+            candidate_indices = selected_positive_indices + list(sampled_negatives)
 
             # Get user and candidate item features
             user_index = list(test_user_ids).index(user_id)
@@ -151,6 +154,7 @@ def evaluate_model(model: TwoTowerModel, test_data: Dict, test_user_ids: np.arra
             recall_scores.append(recall)
             ndcg_scores.append(ndcg)
             f1_scores.append(f1)
+        print("Average interactions per evaluated user:", np.mean(list(user_interactions_count.values())))
 
     return {
         'precision': np.mean(precision_scores) if precision_scores else 0.0,

@@ -4,6 +4,8 @@ import numpy as np
 import os
 from dotenv import load_dotenv
 from embed import convert_to_embedding
+from calculate_activeness import append_activeness_features_to_embeddings
+from calculate_contribution import append_reputation_features_to_embeddings
 
 # Load environment variables
 load_dotenv()
@@ -81,15 +83,20 @@ def prepare_data(data: Dict, test_size: float) -> Tuple[Dict, Dict]:
     user_topic_embeddings = convert_to_embedding(user_topic_values, topic_to_idx)
     item_topic_embeddings = convert_to_embedding(item_topic_values, topic_to_idx)
 
+    # Add Activeness features
+    user_topic_activeness_embeddings = append_activeness_features_to_embeddings(user_topic_embeddings)
+    # Add Contribution features
+    user_topic_activeness_contribution_embeddings = append_reputation_features_to_embeddings(user_topic_activeness_embeddings)
+
     # Prepare training data
-    train_user_topic_embeddings = np.array([user_topic_embeddings[uid] for uid in train_interactions['user_id'].values])
+    train_user_topic_embeddings = np.array([user_topic_activeness_contribution_embeddings[uid] for uid in train_interactions['user_id'].values])
     train_item_topic_embeddings = np.array([item_topic_embeddings[iid] for iid in train_interactions['item_id'].values])
     train_labels = train_interactions['label'].values
 
     # Prepare test data
     test_user_ids = test_interactions['user_id'].values
     test_item_ids = test_interactions['item_id'].values
-    test_user_topic_embeddings = np.array([user_topic_embeddings[uid] for uid in test_user_ids])
+    test_user_topic_embeddings = np.array([user_topic_activeness_contribution_embeddings[uid] for uid in test_user_ids])
     test_item_topic_embeddings = np.array([item_topic_embeddings[iid] for iid in test_item_ids])
     test_labels = test_interactions['label'].values
 
