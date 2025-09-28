@@ -15,7 +15,7 @@ class TwoTowerDataset(Dataset):
 
     def __getitem__(self, idx):
         return {
-            'user_topics': self.user_features[idx],
-            'item_topics': self.item_features[idx],
+            'user_topic_embeddings': self.user_features[idx],
+            'item_topic_embeddings': self.item_features[idx],
             'labels': self.labels[idx]
         }

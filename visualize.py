@@ -1,6 +1,13 @@
+from datetime import date
 from typing import Dict
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+plot_saving_path = os.getenv("PLOT_SAVING_PATH")
 
 def visualize_results(history: Dict, embeddings_data: Dict, metrics: Dict):
     """
@@ -72,4 +79,5 @@ def visualize_results(history: Dict, embeddings_data: Dict, metrics: Dict):
     plt.colorbar(im, ax=axes[1, 2])
 
     plt.tight_layout()
+    plt.savefig(os.path.join(plot_saving_path, f'visualization_{int(date.today().strftime("%Y%m%d"))}.png'))
     plt.show()

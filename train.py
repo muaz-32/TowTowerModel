@@ -6,13 +6,12 @@ from typing import Dict
 from model import TwoTowerModel
 from utils import device
 
-def train_model(model: TwoTowerModel, train_loader: DataLoader, val_loader: DataLoader,
-                epochs: int = 50, learning_rate: float = 0.001) -> Dict:
+def train_model(model: TwoTowerModel, train_loader: DataLoader, val_loader: DataLoader, epochs: int = 50, learning_rate: float = 0.001) -> Dict:
     """
     Train the two-tower model.
     """
     criterion = nn.BCEWithLogitsLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.8)
 
     train_losses = []
@@ -31,8 +30,8 @@ def train_model(model: TwoTowerModel, train_loader: DataLoader, val_loader: Data
 
         train_pbar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{epochs} [Train]')
         for batch in train_pbar:
-            user_features = batch['user_topics'].to(device)
-            item_features = batch['item_topics'].to(device)
+            user_features = batch['user_topic_embeddings'].to(device)
+            item_features = batch['item_topic_embeddings'].to(device)
             labels = batch['labels'].to(device)
 
             optimizer.zero_grad()
@@ -64,8 +63,8 @@ def train_model(model: TwoTowerModel, train_loader: DataLoader, val_loader: Data
         with torch.no_grad():
             val_pbar = tqdm(val_loader, desc=f'Epoch {epoch+1}/{epochs} [Val]')
             for batch in val_pbar:
-                user_features = batch['user_topics'].to(device)
-                item_features = batch['item_topics'].to(device)
+                user_features = batch['user_topic_embeddings'].to(device)
+                item_features = batch['item_topic_embeddings'].to(device)
                 labels = batch['labels'].to(device)
 
                 similarities, _, _ = model(user_features, item_features)

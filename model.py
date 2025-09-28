@@ -14,9 +14,7 @@ class TwoTowerModel(nn.Module):
     The similarity between users and items is computed using cosine similarity.
     """
 
-    def __init__(self, user_features_dim: int, item_features_dim: int,
-                 embedding_dim: int = 64, hidden_layers: List[int] = [128, 64],
-                 dropout_rate: float = 0.3):
+    def __init__(self, user_features_dim: int, item_features_dim: int, hidden_layers: List[int], embedding_dim: int = 64, dropout_rate: float = 0.3):
         super(TwoTowerModel, self).__init__()
 
         self.user_features_dim = user_features_dim
@@ -36,7 +34,7 @@ class TwoTowerModel(nn.Module):
             ])
             input_dim = hidden_dim
 
-        # Final embedding layer for user tower
+        # Final embedding layer for the user tower
         user_layers.append(nn.Linear(input_dim, embedding_dim))
         user_layers.append(nn.ReLU())
 

@@ -1,10 +1,19 @@
 import pandas as pd
 import numpy as np
 from collections import defaultdict
+from dotenv import load_dotenv
+import os
+
+load_dotenv()  # Loads variables from .env
+questions_file_path = os.getenv("QUESTIONS_FILE_PATH")
+answers_file_path = os.getenv("ANSWERS_FILE_PATH")
+comments_file_path = os.getenv("COMMENTS_FILE_PATH")
+tag_based_badges_file_path = os.getenv("TAG_BASED_BADGES_FILE_PATH")
+
 
 def extract_data():
     # Read the users.questions.table.csv file
-    questions_file = pd.read_csv('./data/dump/users.questions.table.csv', header=0,
+    questions_file = pd.read_csv(f'{questions_file_path}', header=0,
                                  names=['UserId', 'QuestionId', 'AcceptedAnswerId', 'CreationDate',
                                         'Score', 'ViewCount', 'IsCommunityOwned', 'Tag',
                                         'AnswerCount', 'CommentCount', 'FavoriteCount'])
@@ -14,7 +23,7 @@ def extract_data():
     questions_file['UserId'] = questions_file['UserId'].astype(int)
 
     # Read and process users.answers.table.csv
-    answers_file = pd.read_csv('./data/dump/users.answers.table.csv', header=0,
+    answers_file = pd.read_csv(f'{answers_file_path}', header=0,
                                names=['UserId', 'AnswerId', 'QuestionId', 'IsAcceptedAnswer',
                                       'CreationDate', 'Score', 'ViewCount', 'IsCommunityOwned',
                                       'Tag', 'CommentCount', 'FavoriteCount'])
@@ -24,7 +33,7 @@ def extract_data():
     answers_file['UserId'] = answers_file['UserId'].astype(int)
 
     # Read and process users.comments.table.csv
-    comments_file = pd.read_csv('./data/dump/users.comments.table.csv', header=0,
+    comments_file = pd.read_csv(f'{comments_file_path}', header=0,
                                 names=['UserId', 'CommentId', 'PostId', 'PostTypeId', 'Tag', 'CreationDate'])
 
     # Convert UserId to int, handling NaN values
@@ -33,6 +42,25 @@ def extract_data():
 
     user_tags = defaultdict(list)
     question_tags = defaultdict(list)
+
+    # Read and process tag_based_badges.csv
+    badges_file = pd.read_csv(f'{tag_based_badges_file_path}', header=0,
+                              names=['user id', 'badge name', 'badge rank', 'award count', 'creation date'])
+
+    # Convert UserId to int, handling NaN values
+    badges_file = badges_file.dropna(subset=['user id'])
+    badges_file['user id'] = badges_file['user id'].astype(int)
+
+    # Extract tag-based badges for each user
+    user_badges = defaultdict(list)
+
+    for _, row in badges_file.iterrows():
+        user_id = row['user id']
+        badge_name = row['badge name']
+        badge_rank = row['badge rank']
+        badge_count = row['award count']
+        if pd.notna(user_id) and pd.notna(badge_name):
+            user_badges[user_id].append((badge_name, badge_rank, badge_count))
 
     # User tags ------------------------------------------------------------
     for _, row in questions_file.iterrows():
@@ -130,18 +158,24 @@ def extract_data():
     print(f"Number of items (questions): {len(unique_questions)}")
     print(f"Topic vocabulary size: {len(topic_vocab)}")
 
+    # Convert user badges to lists (matching the format of other data)
+    user_badge_lists = []
+    for user_id in unique_users:
+        if user_id in user_badges:
+            user_badge_lists.append(list(user_badges[user_id]))  # Keep tuples with (name, rank, count)
+        else:
+            user_badge_lists.append([])
+
+    print(f"Number of users with badges: {len([badges for badges in user_badge_lists if badges])}")
+
     return {
         'user_topics': user_topic_lists,
         'item_topics': item_topic_lists,
         'interactions': interactions_df,
+        'user_badges': user_badge_lists,
         'n_users': len(unique_users),
         'n_items': len(unique_questions),
-        'topic_vocab': topic_vocab
+        'topic_vocab': topic_vocab,
+        'unique_users': unique_users,
+        'unique_questions': unique_questions
     }
-
-
-def main():
-    extract_data()
-
-if __name__ == "__main__":
-    main()
