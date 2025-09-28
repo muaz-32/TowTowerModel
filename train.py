@@ -6,7 +6,7 @@ from typing import Dict
 from model import TwoTowerModel
 from utils import device
 
-def train_model(model: TwoTowerModel, train_loader: DataLoader, val_loader: DataLoader, epochs: int = 50, learning_rate: float = 0.001) -> Dict:
+def train_model(model: TwoTowerModel, train_loader: DataLoader, val_loader: DataLoader, epochs: int, learning_rate: float = 0.001) -> Dict:
     """
     Train the two-tower model.
     """

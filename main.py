@@ -10,7 +10,7 @@ import warnings
 from dataset import TwoTowerDataset
 from model import TwoTowerModel
 from prepare import prepare_data
-from evaluate import evaluate_model, evaluate_model_candidate_sampling
+from evaluate import evaluate_model
 from visualize import visualize_results
 from train import train_model
 from utils import set_random_seeds, device
@@ -21,6 +21,9 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 test_size = float(os.getenv("TEST_DATA_SIZE"))
+epochs = int(os.getenv("EPOCHS"))
+learning_rate = float(os.getenv("LEARNING_RATE"))
+batch_size = int(os.getenv("BATCH_SIZE"))
 
 warnings.filterwarnings('ignore')
 
@@ -52,8 +55,8 @@ def main():
         test_data['labels']
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=512, shuffle=True, num_workers=2)
-    val_loader = DataLoader(test_dataset, batch_size=512, shuffle=False, num_workers=2)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=2)
+    val_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
 
     # Initialize the model
     model = TwoTowerModel(
@@ -77,8 +80,8 @@ def main():
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        epochs=5,
-        learning_rate=0.001
+        epochs=epochs,
+        learning_rate=learning_rate
     )
 
     # Generate embeddings for visualization
@@ -107,9 +110,6 @@ def main():
     metrics_k5 = evaluate_model(model, test_data, test_user_ids=test_data['user_ids'], test_item_ids=test_data['item_ids'], k=5)
     metrics_k10 = evaluate_model(model, test_data, test_user_ids=test_data['user_ids'], test_item_ids=test_data['item_ids'], k=10)
 
-    metrics_k5_candidate_sampling = evaluate_model_candidate_sampling(model, test_data, test_user_ids=test_data['user_ids'], test_item_ids=test_data['item_ids'], k=5)
-    metrics_k10_candidate_sampling = evaluate_model_candidate_sampling(model, test_data, test_user_ids=test_data['user_ids'], test_item_ids=test_data['item_ids'], k=10)
-
     print(f"\nFinal Results:")
     print(f"Metrics@5: Precision={metrics_k5['precision']:.4f}, "
           f"Recall={metrics_k5['recall']:.4f}, NDCG={metrics_k5['ndcg']:.4f}")
@@ -118,8 +118,7 @@ def main():
 
     # Visualize results
     print("\nGenerating visualizations...")
-    visualize_results(history, embeddings_data, metrics_k5)
-    visualize_results(history, embeddings_data, metrics_k5_candidate_sampling)
+    visualize_results(history, embeddings_data, metrics_k5, metrics_k10)
 
     print("\n" + "=" * 60)
     print("Training and evaluation completed!")

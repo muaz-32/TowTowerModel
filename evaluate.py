@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 interaction_threshold = int(os.getenv("SKIP_USER_INTERACTION_THRESHOLD"))
+candidate_sampling_number = int(os.getenv("CANDIDATE_SAMPLING_NUMBER"))
 
 class EvaluationMetrics:
     """
@@ -87,93 +88,6 @@ class EvaluationMetrics:
 
 def evaluate_model(model: TwoTowerModel, test_data: Dict, test_user_ids: np.array, test_item_ids: np.array, k: int) -> Dict[str, float]:
     """
-    Evaluate the two-tower model using various metrics.
-    """
-    print(f"Evaluating model with k={k}...")
-
-    model.eval()
-    model.to(device)
-
-    # Get unique users from test data
-    test_interactions = test_data['interactions']
-    unique_users = test_interactions['user_id'].unique()
-
-    precision_scores = []
-    recall_scores = []
-    ndcg_scores = []
-    f1_scores = []
-
-    all_user_features = test_data['user_topic_embeddings']
-    all_item_features = test_data['item_topic_embeddings']
-
-    # Convert to tensors
-    all_user_features_tensor = torch.FloatTensor(all_user_features).to(device)
-    all_item_features_tensor = torch.FloatTensor(all_item_features).to(device)
-
-    with torch.no_grad():
-        for user_id in tqdm(unique_users, desc="Evaluating users"):
-            # Get user interactions
-            user_interactions = test_interactions[test_interactions['user_id'] == user_id]
-
-            if len(user_interactions) < interaction_threshold:  # Skip users with too few interactions
-                continue
-
-            user_index = list(test_user_ids).index(user_id)
-
-            # Get user features
-            user_features = all_user_features_tensor[user_index:user_index+1]
-
-            # Repeat user features for all items
-            user_features_repeated = user_features.repeat(len(all_item_features_tensor), 1)
-
-            # Calculate similarities with all items
-            similarities, _, _ = model(user_features_repeated, all_item_features_tensor)
-            similarities = torch.sigmoid(similarities).cpu().numpy()
-
-            # Get ground truth items for this user
-            true_items = user_interactions[user_interactions['label'] == 1]['item_id'].values
-            if len(true_items) == 0:  # Skip users with no positive interactions
-                continue
-
-            # Create ground truth array
-            y_true = np.zeros(len(similarities))
-
-            for true_item in true_items:
-                true_item_index = list(test_item_ids).index(true_item)
-                y_true[true_item_index] = 1
-
-            # Calculate metrics
-            precision = EvaluationMetrics.precision_at_k(y_true, similarities, k)
-            recall = EvaluationMetrics.recall_at_k(y_true, similarities, k)
-            ndcg = EvaluationMetrics.ndcg_at_k(y_true, similarities, k)
-            f1 = EvaluationMetrics.f1_at_k(y_true, similarities, k)
-
-            precision_scores.append(precision)
-            recall_scores.append(recall)
-            ndcg_scores.append(ndcg)
-            f1_scores.append(f1)
-
-    # Calculate average metrics
-    avg_precision = np.mean(precision_scores) if precision_scores else 0.0
-    avg_recall = np.mean(recall_scores) if recall_scores else 0.0
-    avg_ndcg = np.mean(ndcg_scores) if ndcg_scores else 0.0
-    avg_f1 = np.mean(f1_scores) if f1_scores else 0.0
-
-    print(f"Average Precision@{k}: {avg_precision:.4f}")
-    print(f"Average Recall@{k}: {avg_recall:.4f}")
-    print(f"Average NDCG@{k}: {avg_ndcg:.4f}")
-    print(f"Average F1@{k}: {avg_f1:.4f}")
-
-    return {
-        'precision': avg_precision,
-        'recall': avg_recall,
-        'ndcg': avg_ndcg,
-        'f1': avg_f1
-    }
-
-
-def evaluate_model_candidate_sampling(model: TwoTowerModel, test_data: Dict, test_user_ids: np.array, test_item_ids: np.array, k: int) -> Dict[str, float]:
-    """
     Improved evaluation with candidate sampling.
     """
     model.eval()
@@ -185,9 +99,11 @@ def evaluate_model_candidate_sampling(model: TwoTowerModel, test_data: Dict, tes
     precision_scores = []
     recall_scores = []
     ndcg_scores = []
+    f1_scores = []
 
     # Use candidate sampling instead of all items
-    num_candidates = 100  # Sample 100 items instead of all 18,730
+    num_candidates = candidate_sampling_number
+    print("Number of candidates sampled per user:", num_candidates)
 
     with torch.no_grad():
         for user_id in tqdm(unique_users, desc="Evaluating users"):
@@ -223,19 +139,22 @@ def evaluate_model_candidate_sampling(model: TwoTowerModel, test_data: Dict, tes
 
             # Create ground truth for candidates
             y_true = np.zeros(len(candidate_indices))
-            y_true[:len(positive_indices)] = 1  # First items are positive
+            y_true[:len(positive_indices)] = 1  # The first items are positive
 
             # Calculate metrics
             precision = EvaluationMetrics.precision_at_k(y_true, similarities, k)
             recall = EvaluationMetrics.recall_at_k(y_true, similarities, k)
             ndcg = EvaluationMetrics.ndcg_at_k(y_true, similarities, k)
+            f1 = EvaluationMetrics.f1_at_k(y_true, similarities, k)
 
             precision_scores.append(precision)
             recall_scores.append(recall)
             ndcg_scores.append(ndcg)
+            f1_scores.append(f1)
 
     return {
         'precision': np.mean(precision_scores) if precision_scores else 0.0,
         'recall': np.mean(recall_scores) if recall_scores else 0.0,
-        'ndcg': np.mean(ndcg_scores) if ndcg_scores else 0.0
+        'ndcg': np.mean(ndcg_scores) if ndcg_scores else 0.0,
+        'f1': np.mean(f1_scores) if f1_scores else 0.0
     }

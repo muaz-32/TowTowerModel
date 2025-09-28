@@ -4,12 +4,83 @@ from collections import defaultdict
 from dotenv import load_dotenv
 import os
 
+from embed import get_topic_embedding
+
 load_dotenv()  # Loads variables from .env
 questions_file_path = os.getenv("QUESTIONS_FILE_PATH")
 answers_file_path = os.getenv("ANSWERS_FILE_PATH")
 comments_file_path = os.getenv("COMMENTS_FILE_PATH")
 tag_based_badges_file_path = os.getenv("TAG_BASED_BADGES_FILE_PATH")
+similarity_threshold = float(os.getenv("COSINE_SIMILARITY_THRESHOLD_FOR_NEGATIVE_SAMPLING"))
 
+
+def get_topic_profile(unique_objects, topic_lists):
+    profiles = {}
+    for i, user_id in enumerate(unique_objects):
+        user_topics = topic_lists[i]
+        if user_topics:
+            # Get embeddings for all user topics and average them
+            embeddings = [get_topic_embedding(topic) for topic in user_topics if topic]
+            if embeddings:
+                profiles[i] = np.mean(embeddings, axis=0)
+            else:
+                profiles[i] = np.zeros(200)  # topic embedding model dimension is 200
+        else:
+            profiles[i] = np.zeros(200)
+    return profiles
+
+def generate_constructive_negative_samples(user_topic_lists, item_topic_lists, interactions,
+                                           user_id_to_index, question_id_to_index,
+                                           unique_users, unique_questions, positive_count):
+    """Generate negative samples based on topic dissimilarity using embeddings."""
+    from embed import get_topic_embedding
+    import random
+
+    random.seed(42)
+    negative_interactions = []
+
+    # Create positive interaction set for quick lookup
+    positive_set = set()
+    for interaction in interactions:
+        positive_set.add((interaction[0], interaction[1]))
+
+    # Calculate user topic profiles (average embeddings)
+    user_profiles = get_topic_profile(unique_users, user_topic_lists)
+    question_profiles = get_topic_profile(unique_questions, item_topic_lists)
+
+    # Generate negative samples based on low-cosine similarity
+    attempts = 0
+    max_attempts = positive_count * 10  # Prevent infinite loop
+
+    while len(negative_interactions) < positive_count and attempts < max_attempts:
+        user_idx = random.randint(0, len(unique_users) - 1)
+        question_idx = random.randint(0, len(unique_questions) - 1)
+
+        # Skip if this is already a positive interaction
+        if (user_idx, question_idx) in positive_set:
+            attempts += 1
+            continue
+
+        # Calculate cosine similarity between user and question profiles
+        user_profile = user_profiles[user_idx]
+        question_profile = question_profiles[question_idx]
+
+        # Skip if either profile is zero vector
+        user_norm = np.linalg.norm(user_profile)
+        question_norm = np.linalg.norm(question_profile)
+
+        if user_norm == 0 or question_norm == 0:
+            similarity = 0
+        else:
+            similarity = np.dot(user_profile, question_profile) / (user_norm * question_norm)
+
+        if similarity < similarity_threshold:
+            negative_interactions.append([user_idx, question_idx, 0])
+
+        attempts += 1
+
+    print(f"Generated {len(negative_interactions)} constructive negative samples")
+    return negative_interactions
 
 def extract_data():
     # Read the users.questions.table.csv file
@@ -124,22 +195,13 @@ def extract_data():
             interactions.append([user_idx, question_idx, 1])  # Positive interaction
 
     # Create some negative interactions (users who didn't answer certain questions)
-    # Sample negative interactions to balance the dataset
-    positive_count = len(interactions)
-    negative_interactions = []
-
-    import random
-    random.seed(42)
-
-    while len(negative_interactions) < positive_count:
-        user_idx = random.randint(0, len(unique_users) - 1)
-        question_idx = random.randint(0, len(unique_questions) - 1)
-
-        # Check if this combination doesn't exist in positive interactions
-        if [user_idx, question_idx, 1] not in interactions:
-            negative_interactions.append([user_idx, question_idx, 0])
-
+    negative_interactions = generate_constructive_negative_samples(
+        user_topic_lists, item_topic_lists, interactions,
+        user_id_to_index, question_id_to_index,
+        unique_users, unique_questions, len(interactions)
+    )
     interactions.extend(negative_interactions)
+
     interactions_df = pd.DataFrame(interactions, columns=['user_id', 'item_id', 'label'])
 
     # Get all unique topics for vocabulary
